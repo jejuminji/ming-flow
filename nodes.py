@@ -258,9 +258,15 @@ class QwenImageGenerateLocal:
             (choice for choice in choices if Path(choice).name == preferred), None
         )
         default_choice = matching_choice or preferred
-        if default_choice in choices:
-            choices.remove(default_choice)
-        return [default_choice, *choices]
+        # Keep paths written by older split-file workflows valid during
+        # ComfyUI's pre-execution dropdown validation. _load_models resolves
+        # these aliases to whichever current entry has the same basename.
+        compatibility_choices = [
+            preferred,
+            f"split_files/{folder_name}/{preferred}",
+        ]
+        ordered_choices = [default_choice, *compatibility_choices, *choices]
+        return list(dict.fromkeys(ordered_choices))
 
     @classmethod
     def INPUT_TYPES(cls):
