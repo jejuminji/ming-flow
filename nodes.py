@@ -875,9 +875,9 @@ class QwenImagePreviewDownload:
     """Preview local Qwen output, provide download UI, and pass IMAGE onward."""
 
     def __init__(self):
-        from nodes import PreviewImage
+        from nodes import SaveImage
 
-        self._preview = PreviewImage()
+        self._preview = SaveImage()
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -899,7 +899,7 @@ class QwenImagePreviewDownload:
         progress.update_absolute(10, 100)
         response = self._preview.save_images(
             images,
-            filename_prefix="ART_AI_qwen_preview",
+            filename_prefix="MingFlow/qwen/qwen_image",
             prompt=prompt,
             extra_pnginfo=extra_pnginfo,
         )
@@ -1430,9 +1430,9 @@ class Trellis2PrepareImageRemoveBG:
     """Use TRELLIS.2's own background model and return an RGBA IMAGE."""
 
     def __init__(self):
-        from nodes import PreviewImage
+        from nodes import SaveImage
 
-        self._preview = PreviewImage()
+        self._preview = SaveImage()
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -1492,7 +1492,7 @@ class Trellis2PrepareImageRemoveBG:
         rgba_image = torch.from_numpy(array).unsqueeze(0)
         response = self._preview.save_images(
             rgba_image,
-            filename_prefix="ART_AI_trellis2_remove_bg",
+            filename_prefix="MingFlow/remove_bg/removed_bg",
             prompt=prompt,
             extra_pnginfo=extra_pnginfo,
         )
