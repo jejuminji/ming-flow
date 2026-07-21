@@ -193,7 +193,7 @@ class GPTPromptInput:
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("request_text",)
     FUNCTION = "build"
-    CATEGORY = "🎨 ART AI/OpenAI"
+    CATEGORY = "🌊 MingFlow/OpenAI"
 
     def build(self, prompt):
         prompt = prompt.strip()
@@ -210,7 +210,7 @@ class QwenPromptInput:
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("prompt",)
     FUNCTION = "build"
-    CATEGORY = "🎨 ART AI/Qwen Local"
+    CATEGORY = "🌊 MingFlow/Qwen Local"
 
     def build(self, prompt):
         prompt = prompt.strip()
@@ -301,7 +301,7 @@ class QwenImageGenerateLocal:
     RETURN_TYPES = ("IMAGE",)
     RETURN_NAMES = ("images",)
     FUNCTION = "generate"
-    CATEGORY = "🎨 ART AI/Qwen Local"
+    CATEGORY = "🌊 MingFlow/Qwen Local"
 
     @staticmethod
     def _register_model_directory(model_directory):
@@ -474,7 +474,7 @@ class GPTPromptGenerator:
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("prompt",)
     FUNCTION = "generate"
-    CATEGORY = "🎨 ART AI/OpenAI"
+    CATEGORY = "🌊 MingFlow/OpenAI"
 
     def generate(self, api_key, request_text):
         _require_api_config(api_key)
@@ -501,7 +501,7 @@ class OpenAIAPIKey:
     RETURN_TYPES = ("OPENAI_API_KEY",)
     RETURN_NAMES = ("api_key",)
     FUNCTION = "status"
-    CATEGORY = "🎨 ART AI/OpenAI"
+    CATEGORY = "🌊 MingFlow/OpenAI"
 
     def status(self):
         configured = bool(_RUNTIME_API_KEY or os.getenv("OPENAI_API_KEY"))
@@ -520,7 +520,7 @@ class TripoAPIKey:
     RETURN_TYPES = ("TRIPO_API_KEY",)
     RETURN_NAMES = ("api_key",)
     FUNCTION = "status"
-    CATEGORY = "🎨 ART AI/Tripo"
+    CATEGORY = "🌊 MingFlow/Tripo"
 
     def status(self):
         configured = bool(_RUNTIME_TRIPO_API_KEY or os.getenv("TRIPO_API_KEY"))
@@ -546,7 +546,7 @@ class GPTImage2Generate:
 
     RETURN_TYPES = ("IMAGE",)
     FUNCTION = "generate"
-    CATEGORY = "🎨 ART AI/OpenAI"
+    CATEGORY = "🌊 MingFlow/OpenAI"
 
     def generate(self, api_key, prompt, size, quality, background):
         _require_api_config(api_key)
@@ -584,7 +584,7 @@ class GPTImage2Edit:
 
     RETURN_TYPES = ("IMAGE",)
     FUNCTION = "edit"
-    CATEGORY = "🎨 ART AI/OpenAI"
+    CATEGORY = "🌊 MingFlow/OpenAI"
 
     def edit(self, api_key, image, prompt, size, quality, image_count, mask=None):
         _require_api_config(api_key)
@@ -630,7 +630,7 @@ class GPTImageDisplay:
     RETURN_NAMES = ("images",)
     FUNCTION = "display"
     OUTPUT_NODE = True
-    CATEGORY = "🎨 ART AI/OpenAI"
+    CATEGORY = "🌊 MingFlow/OpenAI"
 
     def display(self, images, prompt=None, extra_pnginfo=None):
         response = self._preview.save_images(
@@ -662,7 +662,7 @@ class QwenImagePreviewDownload:
     RETURN_NAMES = ("images",)
     FUNCTION = "display"
     OUTPUT_NODE = True
-    CATEGORY = "🎨 ART AI/Qwen Local"
+    CATEGORY = "🌊 MingFlow/Qwen Local"
 
     def display(self, images, prompt=None, extra_pnginfo=None):
         response = self._preview.save_images(
@@ -696,7 +696,7 @@ class TripoImageTo3DSmartLowPoly:
     RETURN_NAMES = ("glb_path", "task_id")
     FUNCTION = "generate"
     OUTPUT_NODE = True
-    CATEGORY = "🎨 ART AI/Tripo"
+    CATEGORY = "🌊 MingFlow/Tripo"
 
     @staticmethod
     def _json(response, operation):
@@ -825,7 +825,7 @@ class TripoPreview3DAnimation:
     RETURN_TYPES = ()
     FUNCTION = "preview"
     OUTPUT_NODE = True
-    CATEGORY = "🎨 ART AI/Tripo"
+    CATEGORY = "🌊 MingFlow/Tripo"
     EXPERIMENTAL = True
 
     def preview(self, glb_path, model_file=""):
@@ -855,7 +855,7 @@ class Trellis2PreviewGLBDownload:
     RETURN_TYPES = ()
     FUNCTION = "preview"
     OUTPUT_NODE = True
-    CATEGORY = "🎨 ART AI/TRELLIS2"
+    CATEGORY = "🌊 MingFlow/TRELLIS2"
     EXPERIMENTAL = True
 
     def preview(self, glb_path, relative_path="", model_file=""):
@@ -988,7 +988,7 @@ class Trellis2ImageToGLBLocal:
     RETURN_NAMES = ("glb_path", "relative_path", "used_seed")
     FUNCTION = "generate"
     OUTPUT_NODE = True
-    CATEGORY = "🎨 ART AI/TRELLIS2"
+    CATEGORY = "🌊 MingFlow/TRELLIS2"
 
     @classmethod
     def _get_pipeline(cls, model_directory):
@@ -1205,7 +1205,7 @@ class Trellis2PrepareImageRemoveBG:
     RETURN_NAMES = ("rgba_image",)
     FUNCTION = "remove_background"
     OUTPUT_NODE = True
-    CATEGORY = "🎨 ART AI/TRELLIS2"
+    CATEGORY = "🌊 MingFlow/TRELLIS2"
 
     def remove_background(
         self, image, model_directory, prompt=None, extra_pnginfo=None
@@ -1252,7 +1252,7 @@ class TripoExtractBaseColorTexture:
     RETURN_TYPES = ("IMAGE",)
     RETURN_NAMES = ("texture",)
     FUNCTION = "extract"
-    CATEGORY = "🎨 ART AI/Tripo"
+    CATEGORY = "🌊 MingFlow/Tripo"
 
     @staticmethod
     def _read_glb(path):
