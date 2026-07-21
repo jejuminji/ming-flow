@@ -1339,7 +1339,7 @@ class Trellis2ImageToGLBLocal:
             "1536": "1536_cascade",
         }[str(resolution)]
 
-        outputs = pipeline.run(
+        outputs, latents = pipeline.run(
             input_image,
             seed=used_seed,
             preprocess_image=False,
@@ -1362,16 +1362,23 @@ class Trellis2ImageToGLBLocal:
                 "rescale_t": float(stage3_rescale_t),
             },
             pipeline_type=pipeline_type,
+            return_latent=True,
         )
         progress.update_absolute(78, 100)
-        mesh = outputs[0]
+        # Match the official Gradio demo's Extract GLB path exactly. The demo
+        # preserves the generated latents and decodes them again for export,
+        # instead of exporting the preview mesh returned by pipeline.run().
+        shape_slat, tex_slat, latent_resolution = latents
+        mesh = pipeline.decode_latent(
+            shape_slat, tex_slat, latent_resolution
+        )[0]
         glb = o_voxel.postprocess.to_glb(
             vertices=mesh.vertices,
             faces=mesh.faces,
             attr_volume=mesh.attrs,
             coords=mesh.coords,
-            attr_layout=mesh.layout,
-            voxel_size=mesh.voxel_size,
+            attr_layout=pipeline.pbr_attr_layout,
+            grid_size=latent_resolution,
             aabb=[[-0.5, -0.5, -0.5], [0.5, 0.5, 0.5]],
             decimation_target=int(decimation_target),
             texture_size=int(texture_size),
