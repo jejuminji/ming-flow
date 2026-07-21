@@ -595,7 +595,84 @@ class QwenImageGenerateLocalV2(QwenImageGenerateLocal):
 
 
 class QwenImageGenerateLocalV3(QwenImageGenerateLocal):
-    """Stable Qwen node schema with prompt exposed only as an input socket."""
+    """Previous single-checkpoint schema kept for workflow compatibility."""
+
+
+class QwenImageGenerateDiffusersBF16V4(QwenImageGenerateLocal):
+    """Load an official local Qwen Diffusers folder and run it in BF16."""
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "prompt": ("STRING", {"forceInput": True}),
+                "model_directory": (
+                    "STRING",
+                    {
+                        "default": "/workspace/models/qwen",
+                        "multiline": False,
+                        "placeholder": "/workspace/models/qwen",
+                    },
+                ),
+                "width": (
+                    "INT",
+                    {"default": 1328, "min": 256, "max": 4096, "step": 16},
+                ),
+                "height": (
+                    "INT",
+                    {"default": 1328, "min": 256, "max": 4096, "step": 16},
+                ),
+                "seed": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": 0,
+                        "max": 0xFFFFFFFFFFFFFFFF,
+                        "control_after_generate": True,
+                    },
+                ),
+                "steps": ("INT", {"default": 50, "min": 1, "max": 100, "step": 1}),
+                "cfg": (
+                    "FLOAT",
+                    {"default": 4.0, "min": 0.0, "max": 20.0, "step": 0.1},
+                ),
+                "negative_prompt": (
+                    "STRING",
+                    {"multiline": True, "default": cls.DEFAULT_NEGATIVE},
+                ),
+            }
+        }
+
+    def generate(
+        self,
+        prompt,
+        model_directory,
+        width,
+        height,
+        seed,
+        steps,
+        cfg,
+        negative_prompt,
+    ):
+        model_path = Path(str(model_directory)).expanduser().resolve()
+        if not (model_path / "model_index.json").is_file():
+            raise FileNotFoundError(
+                "Qwen Diffusers model_index.json을 찾을 수 없습니다: "
+                f"{model_path / 'model_index.json'}"
+            )
+        return super().generate(
+            prompt=prompt,
+            unet_name=self.DEFAULT_UNET,
+            clip_name=self.DEFAULT_CLIP,
+            vae_name=self.DEFAULT_VAE,
+            width=width,
+            height=height,
+            seed=seed,
+            steps=steps,
+            cfg=cfg,
+            negative_prompt=negative_prompt,
+            model_directory=str(model_path),
+        )
 
 
 class GPTPromptGenerator:
@@ -1492,6 +1569,7 @@ NODE_CLASS_MAPPINGS = {
     "ARTAI_QwenImageGenerateLocal": QwenImageGenerateLocal,
     "ARTAI_QwenImageGenerateLocalV2": QwenImageGenerateLocalV2,
     "ARTAI_QwenImageGenerateLocalV3": QwenImageGenerateLocalV3,
+    "ARTAI_QwenImageGenerateDiffusersBF16V4": QwenImageGenerateDiffusersBF16V4,
     "ARTAI_GPTPromptGenerator": GPTPromptGenerator,
     "ARTAI_GPTImage2Generate": GPTImage2Generate,
     "ARTAI_GPTImage2Edit": GPTImage2Edit,
@@ -1513,7 +1591,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "ARTAI_QwenPromptInput": "✍️ Qwen Prompt Input",
     "ARTAI_QwenImageGenerateLocal": "⚠️ Qwen Image Generate · Legacy (delete)",
     "ARTAI_QwenImageGenerateLocalV2": "⚠️ Qwen Image Generate · V2 (delete)",
-    "ARTAI_QwenImageGenerateLocalV3": "⚡ Qwen Image Generate · Local V3",
+    "ARTAI_QwenImageGenerateLocalV3": "⚠️ Qwen Image Generate · V3 (delete)",
+    "ARTAI_QwenImageGenerateDiffusersBF16V4": "⚡ Qwen Image Generate · Diffusers BF16 V4",
     "ARTAI_GPTPromptGenerator": "GPT Prompt Generator",
     "ARTAI_GPTImage2Generate": "GPT Image 2 Generate",
     "ARTAI_GPTImage2Edit": "GPT Image 2 Edit",
