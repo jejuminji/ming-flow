@@ -1,0 +1,97 @@
+{
+  "last_node_id": 4,
+  "last_link_id": 3,
+  "nodes": [
+    {
+      "id": 4,
+      "type": "ARTAI_OpenAIAPIKey",
+      "pos": [-390, 120],
+      "size": [360, 190],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {"name": "api_key", "type": "OPENAI_API_KEY", "links": [3], "slot_index": 0}
+      ],
+      "properties": {"Node name for S&R": "ARTAI_OpenAIAPIKey"},
+      "widgets_values": [],
+      "color": "#263238",
+      "bgcolor": "#37474f"
+    },
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [80, 120],
+      "size": [320, 310],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {"name": "image", "type": "COMBO", "widget": {"name": "image"}, "link": null},
+        {"name": "upload", "type": "IMAGEUPLOAD", "widget": {"name": "upload"}, "link": null}
+      ],
+      "outputs": [
+        {"name": "IMAGE", "type": "IMAGE", "links": [1], "slot_index": 0},
+        {"name": "MASK", "type": "MASK", "links": null, "slot_index": 1}
+      ],
+      "properties": {"Node name for S&R": "LoadImage"},
+      "widgets_values": [""]
+    },
+    {
+      "id": 2,
+      "type": "ARTAI_GPTImage2Edit",
+      "pos": [520, 130],
+      "size": [430, 350],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {"name": "api_key", "type": "OPENAI_API_KEY", "link": 3},
+        {"name": "image", "type": "IMAGE", "link": 1},
+        {"name": "prompt", "type": "STRING", "widget": {"name": "prompt"}, "link": null},
+        {"name": "size", "type": "COMBO", "widget": {"name": "size"}, "link": null},
+        {"name": "quality", "type": "COMBO", "widget": {"name": "quality"}, "link": null},
+        {"name": "image_count", "type": "INT", "widget": {"name": "image_count"}, "link": null},
+        {"name": "mask", "type": "MASK", "link": null}
+      ],
+      "outputs": [
+        {"name": "IMAGE", "type": "IMAGE", "links": [2], "slot_index": 0}
+      ],
+      "properties": {"Node name for S&R": "ARTAI_GPTImage2Edit"},
+      "widgets_values": [
+        "캐릭터 디자인과 얼굴은 유지하고, 의상을 짙은 남색 비옷으로 바꿔줘. 배경과 구도는 유지해줘.",
+        "1024x1024",
+        "medium",
+        1
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 3,
+      "type": "SaveImage",
+      "pos": [1060, 160],
+      "size": [320, 270],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {"name": "images", "type": "IMAGE", "link": 2},
+        {"name": "filename_prefix", "type": "STRING", "widget": {"name": "filename_prefix"}, "link": null}
+      ],
+      "outputs": [],
+      "properties": {"Node name for S&R": "SaveImage"},
+      "widgets_values": ["ART_AI/api_edit"]
+    }
+  ],
+  "links": [
+    [1, 1, 0, 2, 1, "IMAGE"],
+    [2, 2, 0, 3, 0, "IMAGE"],
+    [3, 4, 0, 2, 0, "OPENAI_API_KEY"]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {"ds": {"scale": 0.85, "offset": [80, 80]}},
+  "version": 0.4
+}

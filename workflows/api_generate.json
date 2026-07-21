@@ -1,0 +1,193 @@
+{
+  "last_node_id": 9,
+  "last_link_id": 9,
+  "nodes": [
+    {
+      "id": 4,
+      "type": "ARTAI_OpenAIAPIKey",
+      "pos": [-390, 120],
+      "size": [360, 190],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {"name": "api_key", "type": "OPENAI_API_KEY", "links": [5, 6], "slot_index": 0}
+      ],
+      "properties": {"Node name for S&R": "ARTAI_OpenAIAPIKey"},
+      "widgets_values": [],
+      "color": "#263238",
+      "bgcolor": "#37474f"
+    },
+    {
+      "id": 1,
+      "type": "ARTAI_GPTPromptInput",
+      "pos": [80, 120],
+      "size": [430, 420],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {"name": "prompt", "type": "STRING", "widget": {"name": "prompt"}, "link": null}
+      ],
+      "outputs": [
+        {"name": "request_text", "type": "STRING", "links": [1], "slot_index": 0}
+      ],
+      "properties": {"Node name for S&R": "ARTAI_GPTPromptInput"},
+      "widgets_values": [
+        "비 오는 밤의 한국 골목길에서 우산을 든 게임 캐릭터. 16-bit 픽셀아트, 짙은 남색과 따뜻한 주황색 네온 대비, 정면 3/4 시점, 한 명만, 텍스트·로고·워터마크 제외."
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 5,
+      "type": "ARTAI_GPTPromptGenerator",
+      "pos": [610, 160],
+      "size": [360, 210],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {"name": "api_key", "type": "OPENAI_API_KEY", "link": 5},
+        {"name": "request_text", "type": "STRING", "widget": {"name": "request_text"}, "link": 1}
+      ],
+      "outputs": [
+        {"name": "prompt", "type": "STRING", "links": [3], "slot_index": 0}
+      ],
+      "properties": {"Node name for S&R": "ARTAI_GPTPromptGenerator"},
+      "widgets_values": [""],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 2,
+      "type": "ARTAI_GPTImage2Generate",
+      "pos": [1050, 160],
+      "size": [360, 270],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {"name": "api_key", "type": "OPENAI_API_KEY", "link": 6},
+        {"name": "prompt", "type": "STRING", "widget": {"name": "prompt"}, "link": 3},
+        {"name": "size", "type": "COMBO", "widget": {"name": "size"}, "link": null},
+        {"name": "quality", "type": "COMBO", "widget": {"name": "quality"}, "link": null},
+        {"name": "background", "type": "COMBO", "widget": {"name": "background"}, "link": null}
+      ],
+      "outputs": [
+        {"name": "IMAGE", "type": "IMAGE", "links": [2, 4], "slot_index": 0}
+      ],
+      "properties": {"Node name for S&R": "ARTAI_GPTImage2Generate"},
+      "widgets_values": ["", "1024x1024", "medium", "opaque"],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 3,
+      "type": "SaveImage",
+      "pos": [1940, 160],
+      "size": [320, 270],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {"name": "images", "type": "IMAGE", "link": 2},
+        {"name": "filename_prefix", "type": "STRING", "widget": {"name": "filename_prefix"}, "link": null}
+      ],
+      "outputs": [],
+      "properties": {"Node name for S&R": "SaveImage"},
+      "widgets_values": ["ART_AI/api_generate"]
+    },
+    {
+      "id": 6,
+      "type": "ARTAI_GPTImageDisplay",
+      "pos": [1500, 120],
+      "size": [360, 360],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {"name": "images", "type": "IMAGE", "link": 4}
+      ],
+      "outputs": [
+        {"name": "images", "type": "IMAGE", "links": [8], "slot_index": 0}
+      ],
+      "properties": {"Node name for S&R": "ARTAI_GPTImageDisplay"},
+      "widgets_values": [],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 7,
+      "type": "ARTAI_TripoAPIKey",
+      "pos": [-390, 430],
+      "size": [360, 190],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {"name": "api_key", "type": "TRIPO_API_KEY", "links": [7], "slot_index": 0}
+      ],
+      "properties": {"Node name for S&R": "ARTAI_TripoAPIKey"},
+      "widgets_values": [],
+      "color": "#263238",
+      "bgcolor": "#37474f"
+    },
+    {
+      "id": 8,
+      "type": "ARTAI_TripoImageTo3DSmartLowPoly",
+      "pos": [1940, 530],
+      "size": [390, 260],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {"name": "api_key", "type": "TRIPO_API_KEY", "link": 7},
+        {"name": "image", "type": "IMAGE", "link": 8},
+        {"name": "face_limit", "type": "INT", "widget": {"name": "face_limit"}, "link": null},
+        {"name": "texture_quality", "type": "COMBO", "widget": {"name": "texture_quality"}, "link": null},
+        {"name": "timeout_minutes", "type": "INT", "widget": {"name": "timeout_minutes"}, "link": null}
+      ],
+      "outputs": [
+        {"name": "glb_path", "type": "STRING", "links": [9], "slot_index": 0},
+        {"name": "task_id", "type": "STRING", "links": null, "slot_index": 1}
+      ],
+      "properties": {"Node name for S&R": "ARTAI_TripoImageTo3DSmartLowPoly"},
+      "widgets_values": [10000, "standard", 20],
+      "color": "#34233d",
+      "bgcolor": "#50345d"
+    },
+    {
+      "id": 9,
+      "type": "Preview3DAnimation",
+      "pos": [2420, 420],
+      "size": [400, 550],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {"name": "model_file", "type": "STRING", "widget": {"name": "model_file"}, "link": 9}
+      ],
+      "outputs": [],
+      "properties": {"Node name for S&R": "Preview3DAnimation"},
+      "widgets_values": [""]
+    }
+  ],
+  "links": [
+    [1, 1, 0, 5, 1, "STRING"],
+    [2, 2, 0, 3, 0, "IMAGE"],
+    [3, 5, 0, 2, 1, "STRING"],
+    [4, 2, 0, 6, 0, "IMAGE"],
+    [5, 4, 0, 5, 0, "OPENAI_API_KEY"],
+    [6, 4, 0, 2, 0, "OPENAI_API_KEY"],
+    [7, 7, 0, 8, 0, "TRIPO_API_KEY"],
+    [8, 6, 0, 8, 1, "IMAGE"],
+    [9, 8, 0, 9, 0, "STRING"]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {"ds": {"scale": 0.8, "offset": [80, 80]}},
+  "version": 0.4
+}
