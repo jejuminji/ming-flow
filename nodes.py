@@ -476,8 +476,9 @@ class QwenImageGenerateLocal:
             from diffusers import QwenImagePipeline
         except (ImportError, AttributeError) as exc:
             raise RuntimeError(
-                "Diffusers 형식 Qwen-Image-2512 모델입니다. "
-                "diffusers>=0.36.0, transformers>=4.51.3, accelerate를 설치하세요."
+                "Diffusers 형식 Qwen-Image-2512 모델을 로드할 수 없습니다. "
+                "Qwen 공식 최신 diffusers와 transformers>=4.51.3,<5를 설치하세요. "
+                f"원래 import 오류: {type(exc).__name__}: {exc}"
             ) from exc
 
         os.environ.setdefault("HF_ENABLE_PARALLEL_LOADING", "yes")
