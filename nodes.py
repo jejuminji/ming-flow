@@ -334,9 +334,15 @@ class QwenImageGenerateLocal:
         for folder_aliases, candidates in directory_map.items():
             model_path = root
             for candidate in candidates:
-                candidate_path = root / candidate
-                if candidate_path.is_dir():
-                    model_path = candidate_path
+                candidate_paths = (
+                    root / candidate,
+                    root / "split_files" / candidate,
+                )
+                discovered_path = next(
+                    (path for path in candidate_paths if path.is_dir()), None
+                )
+                if discovered_path is not None:
+                    model_path = discovered_path
                     break
             # ComfyUI renamed unet -> diffusion_models and clip ->
             # text_encoders. Register both names so old RunPod templates and
