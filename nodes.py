@@ -446,7 +446,11 @@ class QwenImageGenerateLocal:
 
 
 class QwenImageGenerateLocalV2(QwenImageGenerateLocal):
-    """Schema-stable ID for the folder-based local Qwen generator."""
+    """Previous schema ID kept only so existing workflows can be opened."""
+
+
+class QwenImageGenerateLocalV3(QwenImageGenerateLocal):
+    """Stable Qwen node schema with prompt exposed only as an input socket."""
 
 
 class GPTPromptGenerator:
@@ -1305,6 +1309,7 @@ NODE_CLASS_MAPPINGS = {
     "ARTAI_QwenPromptInput": QwenPromptInput,
     "ARTAI_QwenImageGenerateLocal": QwenImageGenerateLocal,
     "ARTAI_QwenImageGenerateLocalV2": QwenImageGenerateLocalV2,
+    "ARTAI_QwenImageGenerateLocalV3": QwenImageGenerateLocalV3,
     "ARTAI_GPTPromptGenerator": GPTPromptGenerator,
     "ARTAI_GPTImage2Generate": GPTImage2Generate,
     "ARTAI_GPTImage2Edit": GPTImage2Edit,
@@ -1324,7 +1329,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "ARTAI_GPTPromptInput": "GPT Prompt Input",
     "ARTAI_QwenPromptInput": "✍️ Qwen Prompt Input",
     "ARTAI_QwenImageGenerateLocal": "⚠️ Qwen Image Generate · Legacy (delete)",
-    "ARTAI_QwenImageGenerateLocalV2": "⚡ Qwen Image Generate · Local V2",
+    "ARTAI_QwenImageGenerateLocalV2": "⚠️ Qwen Image Generate · V2 (delete)",
+    "ARTAI_QwenImageGenerateLocalV3": "⚡ Qwen Image Generate · Local V3",
     "ARTAI_GPTPromptGenerator": "GPT Prompt Generator",
     "ARTAI_GPTImage2Generate": "GPT Image 2 Generate",
     "ARTAI_GPTImage2Edit": "GPT Image 2 Edit",
