@@ -213,9 +213,14 @@ class QwenPromptInput:
     CATEGORY = "🌊 MingFlow/Qwen Local"
 
     def build(self, prompt):
+        import comfy.utils
+
+        progress = comfy.utils.ProgressBar(100)
+        progress.update_absolute(20, 100)
         prompt = prompt.strip()
         if not prompt:
             raise ValueError("Qwen에 보낼 프롬프트를 입력하세요.")
+        progress.update_absolute(100, 100)
         return (prompt,)
 
 
@@ -639,12 +644,17 @@ class GPTImageDisplay:
     CATEGORY = "🌊 MingFlow/OpenAI"
 
     def display(self, images, prompt=None, extra_pnginfo=None):
+        import comfy.utils
+
+        progress = comfy.utils.ProgressBar(100)
+        progress.update_absolute(10, 100)
         response = self._preview.save_images(
             images,
             filename_prefix="ART_AI_preview",
             prompt=prompt,
             extra_pnginfo=extra_pnginfo,
         )
+        progress.update_absolute(100, 100)
         response["result"] = (images,)
         return response
 
@@ -671,12 +681,17 @@ class QwenImagePreviewDownload:
     CATEGORY = "🌊 MingFlow/Qwen Local"
 
     def display(self, images, prompt=None, extra_pnginfo=None):
+        import comfy.utils
+
+        progress = comfy.utils.ProgressBar(100)
+        progress.update_absolute(10, 100)
         response = self._preview.save_images(
             images,
             filename_prefix="ART_AI_qwen_preview",
             prompt=prompt,
             extra_pnginfo=extra_pnginfo,
         )
+        progress.update_absolute(100, 100)
         response["result"] = (images,)
         return response
 
@@ -865,6 +880,10 @@ class Trellis2PreviewGLBDownload:
     EXPERIMENTAL = True
 
     def preview(self, glb_path, relative_path="", model_file=""):
+        import comfy.utils
+
+        progress = comfy.utils.ProgressBar(100)
+        progress.update_absolute(10, 100)
         raw_path = str(glb_path or model_file).strip()
         if not raw_path:
             raise ValueError("TRELLIS2 Export Mesh의 glb_path 출력을 연결하세요.")
@@ -897,6 +916,7 @@ class Trellis2PreviewGLBDownload:
             else "",
             "type": "output",
         }
+        progress.update_absolute(100, 100)
         return {
             "ui": {
                 # Current Preview3D expects result=[model, camera, bg]. Older
@@ -1219,7 +1239,12 @@ class Trellis2PrepareImageRemoveBG:
     def remove_background(
         self, image, model_directory, prompt=None, extra_pnginfo=None
     ):
+        import comfy.utils
+
+        progress = comfy.utils.ProgressBar(100)
+        progress.update_absolute(5, 100)
         pipeline = Trellis2ImageToGLBLocal._get_pipeline(model_directory)
+        progress.update_absolute(25, 100)
         input_image = Trellis2ImageToGLBLocal._to_pil(image)
 
         has_alpha = False
@@ -1238,6 +1263,7 @@ class Trellis2PrepareImageRemoveBG:
             if pipeline.low_vram:
                 pipeline.rembg_model.cpu()
 
+        progress.update_absolute(80, 100)
         output = output.convert("RGBA")
         array = np.asarray(output).astype(np.float32) / 255.0
         rgba_image = torch.from_numpy(array).unsqueeze(0)
@@ -1247,6 +1273,7 @@ class Trellis2PrepareImageRemoveBG:
             prompt=prompt,
             extra_pnginfo=extra_pnginfo,
         )
+        progress.update_absolute(100, 100)
         response["result"] = (rgba_image,)
         return response
 
