@@ -413,15 +413,20 @@ class QwenImageGenerateLocal:
             raise ValueError("Qwen Prompt Input의 prompt 출력을 연결하세요.")
 
         import comfy.model_management
+        import comfy.utils
         import nodes
         from comfy_extras.nodes_model_advanced import ModelSamplingAuraFlow
 
+        progress = comfy.utils.ProgressBar(100)
+        progress.update_absolute(2, 100)
         unet, clip, vae = self._load_models(
             unet_name, clip_name, vae_name, model_directory
         )
+        progress.update_absolute(12, 100)
         model = ModelSamplingAuraFlow().patch_aura(unet, 3.1)[0]
         positive = nodes.CLIPTextEncode().encode(clip, prompt)[0]
         negative = nodes.CLIPTextEncode().encode(clip, negative_prompt)[0]
+        progress.update_absolute(18, 100)
         latent = {
             "samples": torch.zeros(
                 [1, 16, int(height) // 8, int(width) // 8],
@@ -442,7 +447,10 @@ class QwenImageGenerateLocal:
             latent_image=latent,
             denoise=1.0,
         )[0]
-        return nodes.VAEDecode().decode(vae, samples)
+        progress.update_absolute(92, 100)
+        images = nodes.VAEDecode().decode(vae, samples)
+        progress.update_absolute(100, 100)
+        return images
 
 
 class QwenImageGenerateLocalV2(QwenImageGenerateLocal):
@@ -1074,6 +1082,7 @@ class Trellis2ImageToGLBLocal:
         model_directory="/workspace/models/Trellis2",
     ):
         try:
+            import comfy.utils
             import folder_paths
             import o_voxel
         except ImportError as exc:
@@ -1081,13 +1090,17 @@ class Trellis2ImageToGLBLocal:
                 "TRELLIS.2의 o_voxel 의존성이 설치되지 않았습니다."
             ) from exc
 
+        progress = comfy.utils.ProgressBar(100)
+        progress.update_absolute(2, 100)
         used_seed = (
             int.from_bytes(os.urandom(4), "little") % (self.MAX_SEED + 1)
             if randomize_seed
             else int(seed)
         )
         pipeline = self._get_pipeline(model_directory)
+        progress.update_absolute(12, 100)
         input_image = pipeline.preprocess_image(self._to_pil(image))
+        progress.update_absolute(18, 100)
         pipeline_type = {
             "512": "512",
             "1024": "1024_cascade",
@@ -1118,6 +1131,7 @@ class Trellis2ImageToGLBLocal:
             },
             pipeline_type=pipeline_type,
         )
+        progress.update_absolute(78, 100)
         mesh = outputs[0]
         glb = o_voxel.postprocess.to_glb(
             vertices=mesh.vertices,
@@ -1134,6 +1148,7 @@ class Trellis2ImageToGLBLocal:
             remesh_project=0,
             use_tqdm=True,
         )
+        progress.update_absolute(94, 100)
 
         output_root = Path(folder_paths.get_output_directory())
         output_dir = output_root / "ART_AI" / "trellis2"
@@ -1141,6 +1156,7 @@ class Trellis2ImageToGLBLocal:
         stamp = time.strftime("%Y%m%d_%H%M%S")
         output_path = output_dir / f"trellis2_{stamp}_{used_seed}.glb"
         glb.export(str(output_path), extension_webp=True)
+        progress.update_absolute(100, 100)
         relative_path = output_path.relative_to(output_root).as_posix()
         torch.cuda.empty_cache()
 
