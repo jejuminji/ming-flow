@@ -241,6 +241,8 @@ class QwenImageGenerateLocal:
         self._unet = None
         self._clip = None
         self._vae = None
+        self._diffusers_pipeline = None
+        self._diffusers_pipeline_key = None
 
     @staticmethod
     def _model_choices(folder_name, preferred):
@@ -459,6 +461,35 @@ class QwenImageGenerateLocal:
         self._loaded_key = key
         return self._unet, self._clip, self._vae
 
+    def _load_diffusers_pipeline(self, model_directory):
+        model_path = Path(str(model_directory)).expanduser().resolve()
+        model_index = model_path / "model_index.json"
+        if not model_index.is_file():
+            return None
+        pipeline_key = str(model_path)
+        if (
+            self._diffusers_pipeline is not None
+            and self._diffusers_pipeline_key == pipeline_key
+        ):
+            return self._diffusers_pipeline
+        try:
+            from diffusers import QwenImagePipeline
+        except (ImportError, AttributeError) as exc:
+            raise RuntimeError(
+                "Diffusers 형식 Qwen-Image-2512 모델입니다. "
+                "diffusers>=0.36.0, transformers>=4.51.3, accelerate를 설치하세요."
+            ) from exc
+
+        os.environ.setdefault("HF_ENABLE_PARALLEL_LOADING", "yes")
+        self._diffusers_pipeline = QwenImagePipeline.from_pretrained(
+            pipeline_key,
+            torch_dtype=torch.bfloat16,
+            local_files_only=True,
+            low_cpu_mem_usage=True,
+        ).to("cuda")
+        self._diffusers_pipeline_key = pipeline_key
+        return self._diffusers_pipeline
+
     def generate(
         self,
         prompt,
@@ -484,6 +515,46 @@ class QwenImageGenerateLocal:
 
         progress = comfy.utils.ProgressBar(100)
         progress.update_absolute(2, 100)
+        diffusers_pipeline = self._load_diffusers_pipeline(model_directory)
+        if diffusers_pipeline is not None:
+            progress.update_absolute(15, 100)
+            generator = torch.Generator(device="cuda").manual_seed(int(seed))
+
+            def report_step(pipe, step_index, timestep, callback_kwargs):
+                del pipe, timestep
+                completed = 15 + round(
+                    78 * (int(step_index) + 1) / max(int(steps), 1)
+                )
+                progress.update_absolute(min(completed, 93), 100)
+                return callback_kwargs
+
+            pipeline_kwargs = {
+                "prompt": prompt,
+                "negative_prompt": str(negative_prompt),
+                "width": int(width),
+                "height": int(height),
+                "num_inference_steps": int(steps),
+                "true_cfg_scale": float(cfg),
+                "generator": generator,
+                "callback_on_step_end": report_step,
+            }
+            try:
+                pil_image = diffusers_pipeline(**pipeline_kwargs).images[0]
+            except TypeError as exc:
+                # Compatibility with the earliest QwenImagePipeline release,
+                # which did not expose the step-end callback yet.
+                if "callback_on_step_end" not in str(exc):
+                    raise
+                pipeline_kwargs.pop("callback_on_step_end")
+                pil_image = diffusers_pipeline(**pipeline_kwargs).images[0]
+            progress.update_absolute(96, 100)
+            image_array = np.asarray(
+                pil_image.convert("RGB"), dtype=np.float32
+            ) / 255.0
+            result = (torch.from_numpy(image_array).unsqueeze(0),)
+            progress.update_absolute(100, 100)
+            return result
+
         unet, clip, vae = self._load_models(
             unet_name, clip_name, vae_name, model_directory
         )
