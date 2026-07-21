@@ -471,6 +471,9 @@ class QwenImageGenerateLocal:
             self._diffusers_pipeline is not None
             and self._diffusers_pipeline_key == pipeline_key
         ):
+            # The previous run is kept in system RAM so TRELLIS2/CuMesh can
+            # use the full GPU. Move it back only when Qwen runs again.
+            self._diffusers_pipeline.to("cuda")
             return self._diffusers_pipeline
         try:
             from diffusers import QwenImagePipeline
@@ -553,6 +556,12 @@ class QwenImageGenerateLocal:
                 pil_image.convert("RGB"), dtype=np.float32
             ) / 255.0
             result = (torch.from_numpy(image_array).unsqueeze(0),)
+            progress.update_absolute(97, 100)
+            # Diffusers pipelines are outside ComfyUI's model manager. If we
+            # leave Qwen-Image-2512 BF16 on CUDA, TRELLIS2's UV parameterizer
+            # can stall while both large pipelines compete for H100 VRAM.
+            diffusers_pipeline.to("cpu")
+            torch.cuda.empty_cache()
             progress.update_absolute(100, 100)
             return result
 
