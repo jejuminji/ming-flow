@@ -11,15 +11,16 @@ app.registerExtension({
     },
 });
 
-// Reuse the official animated 3D viewer and add a download button for the GLB
-// produced by ComfyUI-Trellis2's Export Mesh node.
+// Reuse ComfyUI's current Preview3D viewer and add a GLB download button.
 app.registerExtension({
     name: "ARTAI.Trellis2PreviewGLBDownload",
     async beforeRegisterNodeDef(nodeType, nodeData) {
         if (nodeData.name !== "ARTAI_Trellis2PreviewGLBDownload") return;
 
-        nodeData.input.required.image = ["PREVIEW_3D_ANIMATION"];
-        nodeType.comfyClass = "Preview3DAnimation";
+        // Preview3DAnimation was merged into Preview3D in current ComfyUI.
+        // Keeping our server-side glb_path socket avoids breaking workflows;
+        // comfyClass only selects the official frontend renderer.
+        nodeType.comfyClass = "Preview3D";
 
         const original = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function () {

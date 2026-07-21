@@ -899,7 +899,10 @@ class Trellis2PreviewGLBDownload:
         }
         return {
             "ui": {
-                "model_file": [str(path)],
+                # Current Preview3D expects result=[model, camera, bg]. Older
+                # frontends read model_file, so publish both payload shapes.
+                "result": [actual_relative, None, None],
+                "model_file": [actual_relative],
                 "glb_file": [file_info],
                 "relative_path": [actual_relative],
             },
