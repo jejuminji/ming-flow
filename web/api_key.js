@@ -1,6 +1,64 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 
+// Show backend progress inside the TRELLIS2 generation node. Some current
+// ComfyUI frontends no longer render numeric progress for custom nodes.
+app.registerExtension({
+    name: "MingFlow.Trellis2InlineProgress",
+    async beforeRegisterNodeDef(nodeType, nodeData) {
+        const supportedNodes = new Set([
+            "ARTAI_Trellis2ImageToGLBLocal",
+            "ARTAI_Trellis2ImageToGLBLocalV2",
+        ]);
+        if (!supportedNodes.has(nodeData.name)) return;
+
+        const original = nodeType.prototype.onNodeCreated;
+        nodeType.prototype.onNodeCreated = function () {
+            original?.apply(this, arguments);
+
+            const container = document.createElement("div");
+            container.style.cssText = "width:100%;box-sizing:border-box;padding:5px 2px;color:#ddd;font:12px sans-serif";
+            const label = document.createElement("div");
+            label.textContent = "대기 중 · 0%";
+            label.style.marginBottom = "4px";
+            const track = document.createElement("div");
+            track.style.cssText = "height:8px;background:#292929;border-radius:4px;overflow:hidden";
+            const bar = document.createElement("div");
+            bar.style.cssText = "width:0%;height:100%;background:#38bdf8;transition:width .2s ease";
+            track.appendChild(bar);
+            container.append(label, track);
+            this.addDOMWidget("trellis_progress", "TRELLIS_PROGRESS", container, {
+                serialize: false,
+                hideOnZoom: false,
+            });
+
+            const updateProgress = (value, max) => {
+                const safeMax = Number(max) || 100;
+                const percent = Math.max(0, Math.min(100, Math.round((Number(value) || 0) * 100 / safeMax)));
+                bar.style.width = `${percent}%`;
+                label.textContent = percent >= 100 ? "완료 · 100%" : `TRELLIS2 처리 중 · ${percent}%`;
+            };
+            const progressHandler = (event) => {
+                const detail = event?.detail || {};
+                if (String(detail.node) !== String(this.id)) return;
+                updateProgress(detail.value, detail.max);
+            };
+            api.addEventListener("progress", progressHandler);
+
+            const onExecuted = this.onExecuted;
+            this.onExecuted = function () {
+                onExecuted?.apply(this, arguments);
+                updateProgress(100, 100);
+            };
+            const onRemoved = this.onRemoved;
+            this.onRemoved = function () {
+                api.removeEventListener("progress", progressHandler);
+                onRemoved?.apply(this, arguments);
+            };
+        };
+    },
+});
+
 // Reuse ComfyUI's official animated 3D viewer for our connectable wrapper.
 app.registerExtension({
     name: "ARTAI.TripoPreview3DAnimation",
