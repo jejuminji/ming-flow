@@ -76,8 +76,9 @@ app.registerExtension({
         if (nodeData.name !== "ARTAI_Trellis2PreviewGLBDownload") return;
 
         // Preview3DAnimation was merged into Preview3D in current ComfyUI.
-        // Keeping our server-side glb_path socket avoids breaking workflows;
-        // comfyClass only selects the official frontend renderer.
+        // The hidden PREVIEW_3D widget creates the actual Three.js canvas.
+        // Keeping our server-side glb_path socket avoids breaking workflows.
+        nodeData.input.required.image = ["PREVIEW_3D"];
         nodeType.comfyClass = "Preview3D";
 
         const original = nodeType.prototype.onNodeCreated;
