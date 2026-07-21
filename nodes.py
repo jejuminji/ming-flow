@@ -1203,6 +1203,10 @@ class Trellis2ImageToGLBLocal:
         }
 
 
+class Trellis2ImageToGLBLocalV2(Trellis2ImageToGLBLocal):
+    """Stable schema ID that avoids legacy TRELLIS2 widget-value shifting."""
+
+
 class Trellis2PrepareImageRemoveBG:
     """Use TRELLIS.2's own background model and return an RGBA IMAGE."""
 
@@ -1371,6 +1375,7 @@ NODE_CLASS_MAPPINGS = {
     "ARTAI_TripoPreview3DAnimation": TripoPreview3DAnimation,
     "ARTAI_Trellis2PreviewGLBDownload": Trellis2PreviewGLBDownload,
     "ARTAI_Trellis2ImageToGLBLocal": Trellis2ImageToGLBLocal,
+    "ARTAI_Trellis2ImageToGLBLocalV2": Trellis2ImageToGLBLocalV2,
     "ARTAI_Trellis2PrepareImageRemoveBG": Trellis2PrepareImageRemoveBG,
     "ARTAI_TripoExtractBaseColorTexture": TripoExtractBaseColorTexture,
 }
@@ -1391,7 +1396,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "ARTAI_TripoImageTo3DSmartLowPoly": "Tripo Image to 3D · Smart LowPoly",
     "ARTAI_TripoPreview3DAnimation": "Tripo 3D Preview · Animation",
     "ARTAI_Trellis2PreviewGLBDownload": "🧊 TRELLIS2 GLB Preview & Download",
-    "ARTAI_Trellis2ImageToGLBLocal": "⚙️ TRELLIS2 Image to GLB · Local",
+    "ARTAI_Trellis2ImageToGLBLocal": "⚠️ TRELLIS2 Image to GLB · Legacy (delete)",
+    "ARTAI_Trellis2ImageToGLBLocalV2": "⚙️ TRELLIS2 Image to GLB · Local V2",
     "ARTAI_Trellis2PrepareImageRemoveBG": "✂️ TRELLIS2 Prepare Image · Remove BG",
     "ARTAI_TripoExtractBaseColorTexture": "Tripo Extract Base Color Texture",
 }
