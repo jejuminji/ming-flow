@@ -389,6 +389,54 @@ class QwenImageGenerateLocal:
             )
             if basename_match:
                 return basename_match
+
+            # Older ComfyUI builds can retain a stale filename-list cache
+            # after add_model_folder_path(). Locate the selected checkpoint
+            # directly, register its exact parent for both old/new aliases,
+            # then ask folder_paths for the loader-safe name again.
+            selected_basename = Path(selected_name).name
+            model_root = Path(registered_directory) if registered_directory else None
+            direct_matches = (
+                [
+                    path
+                    for path in model_root.rglob(selected_basename)
+                    if path.is_file()
+                ]
+                if model_root and model_root.is_dir()
+                else []
+            )
+            if direct_matches:
+                exact_parent = str(direct_matches[0].parent)
+                for folder_name in folder_aliases:
+                    try:
+                        folder_paths.add_model_folder_path(
+                            folder_name, exact_parent, is_default=True
+                        )
+                    except TypeError:
+                        folder_paths.add_model_folder_path(folder_name, exact_parent)
+                    cache = getattr(folder_paths, "filename_list_cache", None)
+                    if cache is not None:
+                        cache.pop(folder_name, None)
+
+                active_name = next(
+                    (
+                        name
+                        for name in folder_aliases
+                        if name in folder_paths.folder_names_and_paths
+                    ),
+                    active_name,
+                )
+                refreshed_choices = list(folder_paths.get_filename_list(active_name))
+                direct_choice = next(
+                    (
+                        choice
+                        for choice in refreshed_choices
+                        if Path(choice).name == selected_basename
+                    ),
+                    None,
+                )
+                if direct_choice:
+                    return direct_choice
             raise FileNotFoundError(
                 f"{active_name}에서 모델을 찾을 수 없습니다: {selected_name}. "
                 f"model_directory={registered_directory or '(ComfyUI 기본 경로)'}"
