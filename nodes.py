@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import io
 import json
 import os
@@ -14,10 +15,16 @@ from typing import Iterable
 import numpy as np
 import torch
 from PIL import Image
+from comfy_execution.graph_utils import ExecutionBlocker
 
 
 IMAGE_MODEL = "gpt-image-2"
 PROMPT_MODEL = "gpt-5-mini"
+QWEN_DEFAULT_NEGATIVE = (
+    "low resolution, low quality, blurry, noisy, deformed geometry, "
+    "duplicate object, multiple objects, floating parts, disconnected parts, "
+    "cropped object, occlusion, cluttered background, text, logo, watermark"
+)
 _RUNTIME_API_KEY: str | None = None
 _RUNTIME_TRIPO_API_KEY: str | None = None
 
@@ -205,14 +212,22 @@ class GPTPromptInput:
 class QwenPromptInput:
     @classmethod
     def INPUT_TYPES(cls):
-        return {"required": {"prompt": ("STRING", {"multiline": True, "default": ""})}}
+        return {
+            "required": {
+                "prompt": ("STRING", {"multiline": True, "default": ""}),
+                "negative_prompt": (
+                    "STRING",
+                    {"multiline": True, "default": " "},
+                ),
+            }
+        }
 
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("prompt",)
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("prompt", "negative_prompt")
     FUNCTION = "build"
     CATEGORY = "🌊 MingFlow/Qwen Local"
 
-    def build(self, prompt):
+    def build(self, prompt, negative_prompt):
         import comfy.utils
 
         progress = comfy.utils.ProgressBar(100)
@@ -221,7 +236,7 @@ class QwenPromptInput:
         if not prompt:
             raise ValueError("Qwen에 보낼 프롬프트를 입력하세요.")
         progress.update_absolute(100, 100)
-        return (prompt,)
+        return (prompt, negative_prompt.strip())
 
 
 class QwenImageGenerateLocal:
@@ -230,11 +245,7 @@ class QwenImageGenerateLocal:
     DEFAULT_UNET = "qwen_image_2512_fp8_e4m3fn.safetensors"
     DEFAULT_CLIP = "qwen_2.5_vl_7b_fp8_scaled.safetensors"
     DEFAULT_VAE = "qwen_image_vae.safetensors"
-    DEFAULT_NEGATIVE = (
-        "low resolution, low quality, blurry, noisy, deformed geometry, "
-        "duplicate object, multiple objects, floating parts, disconnected parts, "
-        "cropped object, occlusion, cluttered background, text, logo, watermark"
-    )
+    DEFAULT_NEGATIVE = QWEN_DEFAULT_NEGATIVE
 
     def __init__(self):
         self._loaded_key = None
@@ -296,10 +307,7 @@ class QwenImageGenerateLocal:
                 ),
                 "steps": ("INT", {"default": 50, "min": 1, "max": 100, "step": 1}),
                 "cfg": ("FLOAT", {"default": 4.0, "min": 0.0, "max": 20.0, "step": 0.1}),
-                "negative_prompt": (
-                    "STRING",
-                    {"multiline": True, "default": cls.DEFAULT_NEGATIVE},
-                ),
+                "negative_prompt": ("STRING", {"forceInput": True}),
                 "model_directory": (
                     "STRING",
                     {
@@ -615,6 +623,7 @@ class QwenImageGenerateDiffusersBF16V4(QwenImageGenerateLocal):
         return {
             "required": {
                 "prompt": ("STRING", {"forceInput": True}),
+                "negative_prompt": ("STRING", {"forceInput": True}),
                 "model_directory": (
                     "STRING",
                     {
@@ -645,23 +654,19 @@ class QwenImageGenerateDiffusersBF16V4(QwenImageGenerateLocal):
                     "FLOAT",
                     {"default": 4.0, "min": 0.0, "max": 20.0, "step": 0.1},
                 ),
-                "negative_prompt": (
-                    "STRING",
-                    {"multiline": True, "default": cls.DEFAULT_NEGATIVE},
-                ),
             }
         }
 
     def generate(
         self,
         prompt,
+        negative_prompt,
         model_directory,
         width,
         height,
         seed,
         steps,
         cfg,
-        negative_prompt,
     ):
         model_path = Path(str(model_directory)).expanduser().resolve()
         if not (model_path / "model_index.json").is_file():
@@ -682,6 +687,164 @@ class QwenImageGenerateDiffusersBF16V4(QwenImageGenerateLocal):
             negative_prompt=negative_prompt,
             model_directory=str(model_path),
         )
+
+
+class QwenImageEditDiffusersBF16:
+    """Edit a ComfyUI IMAGE with a local official Qwen-Image-Edit folder."""
+
+    def __init__(self):
+        self._pipeline = None
+        self._pipeline_key = None
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "edit_prompt": (
+                    "STRING",
+                    {
+                        "multiline": True,
+                        "default": "",
+                        "placeholder": "이미지에서 바꿀 내용을 구체적으로 입력하세요.",
+                    },
+                ),
+                "negative_prompt": (
+                    "STRING",
+                    {"multiline": True, "default": " "},
+                ),
+                "model_directory": (
+                    "STRING",
+                    {
+                        "default": "/workspace/models/Qwen-Image-Edit-2511",
+                        "multiline": False,
+                        "placeholder": "/workspace/models/Qwen-Image-Edit-2511",
+                    },
+                ),
+                "seed": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": 0,
+                        "max": 0xFFFFFFFFFFFFFFFF,
+                        "control_after_generate": True,
+                    },
+                ),
+                "steps": ("INT", {"default": 40, "min": 1, "max": 100, "step": 1}),
+                "cfg": ("FLOAT", {"default": 4.0, "min": 0.0, "max": 20.0, "step": 0.1}),
+            },
+        }
+
+    RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("edited_image",)
+    FUNCTION = "edit"
+    CATEGORY = "🌊 MingFlow/Qwen Local"
+
+    def _load_pipeline(self, model_directory):
+        model_path = Path(str(model_directory)).expanduser().resolve()
+        if not (model_path / "model_index.json").is_file():
+            raise FileNotFoundError(
+                "Qwen Image Edit model_index.json을 찾을 수 없습니다: "
+                f"{model_path / 'model_index.json'}"
+            )
+
+        pipeline_key = str(model_path)
+        if self._pipeline is not None and self._pipeline_key == pipeline_key:
+            self._pipeline.to("cuda")
+            return self._pipeline
+
+        try:
+            from diffusers import QwenImageEditPlusPipeline
+        except (ImportError, AttributeError) as exc:
+            raise RuntimeError(
+                "Qwen-Image-Edit-2511을 지원하는 최신 diffusers가 필요합니다. "
+                "이 노드의 requirements.txt를 다시 설치하세요. "
+                f"원래 import 오류: {type(exc).__name__}: {exc}"
+            ) from exc
+
+        os.environ.setdefault("HF_ENABLE_PARALLEL_LOADING", "yes")
+        try:
+            model_config = json.loads((model_path / "model_index.json").read_text())
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise RuntimeError(f"Qwen model_index.json을 읽을 수 없습니다: {exc}") from exc
+        if "Plus" not in str(model_config.get("_class_name", "")):
+            raise ValueError(
+                "이 노드는 Qwen-Image-Edit-2511의 QwenImageEditPlusPipeline 전용입니다."
+            )
+        self._pipeline = QwenImageEditPlusPipeline.from_pretrained(
+            pipeline_key,
+            torch_dtype=torch.bfloat16,
+            local_files_only=True,
+            low_cpu_mem_usage=True,
+        )
+        self._pipeline.to("cuda")
+        self._pipeline_key = pipeline_key
+        return self._pipeline
+
+    @staticmethod
+    def _image_to_pil(frame):
+        array = frame.detach().cpu().float().clamp(0, 1).mul(255).round()
+        return Image.fromarray(array.to(torch.uint8).numpy(), mode="RGB")
+
+    def edit(
+        self,
+        image,
+        edit_prompt,
+        negative_prompt,
+        model_directory,
+        seed,
+        steps,
+        cfg,
+    ):
+        edit_prompt = str(edit_prompt).strip()
+        if not edit_prompt:
+            raise ValueError("Qwen으로 수정할 내용을 입력하세요.")
+
+        import comfy.utils
+
+        progress = comfy.utils.ProgressBar(100)
+        progress.update_absolute(2, 100)
+        pipeline = self._load_pipeline(model_directory)
+        outputs = []
+        total_frames = len(image)
+
+        try:
+            for index, frame in enumerate(image):
+                source = self._image_to_pil(frame)
+                generator = torch.Generator(device="cuda").manual_seed(
+                    int(seed) + index
+                )
+
+                def report_step(pipe, step_index, timestep, callback_kwargs):
+                    del pipe, timestep
+                    completed_steps = index * int(steps) + int(step_index) + 1
+                    all_steps = max(total_frames * int(steps), 1)
+                    progress.update_absolute(
+                        min(10 + round(82 * completed_steps / all_steps), 92), 100
+                    )
+                    return callback_kwargs
+
+                kwargs = {
+                    "image": source,
+                    "prompt": edit_prompt,
+                    "negative_prompt": str(negative_prompt) or " ",
+                    "num_inference_steps": int(steps),
+                    "true_cfg_scale": float(cfg),
+                    "guidance_scale": 1.0,
+                    "generator": generator,
+                    "callback_on_step_end": report_step,
+                }
+                result = pipeline(**kwargs).images[0].convert("RGB")
+                array = np.asarray(result, dtype=np.float32) / 255.0
+                outputs.append(torch.from_numpy(array.copy()))
+        finally:
+            # Leave VRAM available to the following TRELLIS/Tripo stages.
+            if self._pipeline is not None:
+                self._pipeline.to("cpu")
+            torch.cuda.empty_cache()
+
+        progress.update_absolute(100, 100)
+        return (torch.stack(outputs, dim=0),)
 
 
 class GPTPromptGenerator:
@@ -831,6 +994,257 @@ class GPTImage2Edit:
             result = _client().images.edit(**kwargs)
             all_outputs.append(_decode_images(result.data))
         return (torch.cat(all_outputs, dim=0),)
+
+
+class GPTImagePartialEdit(GPTImage2Edit):
+    """Edit a generated image before passing the approved result to 3D."""
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "api_key": ("OPENAI_API_KEY",),
+                "image": ("IMAGE",),
+                "edit_prompt": (
+                    "STRING",
+                    {
+                        "multiline": True,
+                        "default": "",
+                        "placeholder": "수정할 내용을 입력하세요. MASK를 연결하면 흰색 영역만 수정합니다.",
+                    },
+                ),
+                "size": (["입력 이미지 비율", "1024x1024", "1536x1024", "1024x1536", "auto"],),
+                "quality": (["auto", "low", "medium", "high"],),
+            },
+            "optional": {"mask": ("MASK",)},
+        }
+
+    RETURN_NAMES = ("edited_image",)
+    CATEGORY = "🌊 MingFlow/OpenAI/Edit"
+
+    def edit(self, api_key, image, edit_prompt, size, quality, mask=None):
+        if not edit_prompt.strip():
+            raise ValueError("수정할 내용을 입력하세요.")
+        if size == "입력 이미지 비율":
+            height, width = image.shape[1:3]
+            if width > height:
+                size = "1536x1024"
+            elif height > width:
+                size = "1024x1536"
+            else:
+                size = "1024x1024"
+        return super().edit(api_key, image, edit_prompt, size, quality, 1, mask)
+
+
+class MingFlowImageCheckpoint:
+    """Persist a generated image and lazily detach later stages from generation."""
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "mode": (["새 이미지 저장", "저장 이미지 재사용"],),
+                "checkpoint_name": ("STRING", {"default": "gpt_source"}),
+            },
+            "optional": {"image": ("IMAGE", {"lazy": True})},
+        }
+
+    RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("fixed_image",)
+    FUNCTION = "checkpoint"
+    CATEGORY = "🌊 MingFlow/Image Edit"
+
+    @classmethod
+    def check_lazy_status(cls, mode, checkpoint_name, image=None):
+        if mode == "새 이미지 저장" and image is None:
+            return ["image"]
+
+    @staticmethod
+    def _path(checkpoint_name):
+        import folder_paths
+
+        safe_name = "".join(
+            character
+            for character in checkpoint_name.strip()
+            if character.isalnum() or character in "-_"
+        )
+        if not safe_name:
+            raise ValueError("체크포인트 이름을 입력하세요.")
+        directory = Path(folder_paths.get_output_directory()) / "MingFlow" / "checkpoints"
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory / f"{safe_name}.png"
+
+    def checkpoint(self, mode, checkpoint_name, image=None):
+        path = self._path(checkpoint_name)
+        if mode == "새 이미지 저장":
+            if image is None:
+                raise ValueError("저장할 생성 이미지를 연결하세요.")
+            if image.shape[0] != 1:
+                raise ValueError("생성 이미지 고정 노드는 이미지 한 장만 지원합니다.")
+            pixels = image[0].detach().cpu().clamp(0, 1).mul(255).round().byte().numpy()
+            Image.fromarray(pixels).save(path, format="PNG")
+            return (image,)
+
+        if not path.is_file():
+            raise FileNotFoundError(
+                f"저장된 생성 이미지가 없습니다: {path}. 먼저 '새 이미지 저장'을 실행하세요."
+            )
+        with Image.open(path) as stored:
+            pixels = np.asarray(stored.convert("RGB"), dtype=np.float32) / 255.0
+        return (torch.from_numpy(pixels.copy()).unsqueeze(0),)
+
+
+class MingFlowRegionSelector:
+    """Draw and return an edit mask for a single generated image."""
+
+    def __init__(self):
+        from nodes import PreviewImage
+
+        self._preview = PreviewImage()
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "mask_data": ("STRING", {"default": ""}),
+            },
+            "hidden": {"prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO"},
+        }
+
+    RETURN_TYPES = ("MASK",)
+    RETURN_NAMES = ("mask",)
+    FUNCTION = "select"
+    CATEGORY = "🌊 MingFlow/Image Edit"
+    OUTPUT_NODE = True
+
+    def select(self, image, mask_data, prompt=None, extra_pnginfo=None):
+        if image.shape[0] != 1:
+            raise ValueError("영역 선택 노드는 이미지 한 장만 지원합니다.")
+
+        height, width = image.shape[1:3]
+        if mask_data:
+            try:
+                encoded = mask_data.split(",", 1)[-1]
+                with Image.open(io.BytesIO(base64.b64decode(encoded))) as mask_image:
+                    mask_image = mask_image.convert("L")
+                    if mask_image.size != (width, height):
+                        raise ValueError("저장된 마스크 크기가 입력 이미지와 다릅니다. 마스크를 초기화하세요.")
+                    mask_array = np.asarray(mask_image, dtype=np.float32) / 255.0
+                mask = torch.from_numpy(mask_array.copy()).unsqueeze(0)
+            except (ValueError, TypeError, binascii.Error, OSError) as exc:
+                raise ValueError("영역 선택 마스크 데이터를 읽을 수 없습니다. 마스크를 초기화하세요.") from exc
+        else:
+            mask = torch.zeros((1, height, width), dtype=torch.float32)
+
+        response = self._preview.save_images(
+            image,
+            filename_prefix="MingFlow/region_selector",
+            prompt=prompt,
+            extra_pnginfo=extra_pnginfo,
+        )
+        response["ui"]["region_image"] = response["ui"].pop("images")
+        response["result"] = (mask,)
+        return response
+
+
+class MingFlowEditApprovalGate:
+    """Choose masked edit, whole-image edit, original, or pause lazily."""
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "stage": (
+                    [
+                        "마스킹 중 · 정지",
+                        "수정 실행",
+                        "전체 수정 실행",
+                        "수정 없이 진행",
+                    ],
+                ),
+            },
+            "optional": {"mask": ("MASK",)},
+        }
+
+    RETURN_TYPES = ("IMAGE", "MASK", "MINGFLOW_EDIT_ROUTE")
+    RETURN_NAMES = ("image", "mask", "route")
+    FUNCTION = "approve"
+    CATEGORY = "🌊 MingFlow/Image Edit"
+
+    def approve(self, image, stage, mask=None):
+        if stage == "수정 없이 진행":
+            blocker = ExecutionBlocker(None)
+            return (blocker, blocker, "original")
+        if stage == "마스킹 중 · 정지":
+            blocker = ExecutionBlocker(None)
+            return (blocker, blocker, "blocked")
+        if stage == "전체 수정 실행":
+            return (image, None, "edited")
+        if mask is None or not torch.any(mask > 0):
+            raise ValueError("부분 수정할 영역을 먼저 칠하거나 '전체 수정 실행'을 선택하세요.")
+        return (image, mask, "edited")
+
+
+class MingFlowQwenEditDecision:
+    """Run Qwen whole-image edit or lazily pass the original image through."""
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "decision": (["수정 실행", "수정 없이 진행"],),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", "MINGFLOW_EDIT_ROUTE")
+    RETURN_NAMES = ("image_for_edit", "route")
+    FUNCTION = "decide"
+    CATEGORY = "🌊 MingFlow/Qwen Local"
+
+    def decide(self, image, decision):
+        if decision == "수정 없이 진행":
+            return (ExecutionBlocker(None), "original")
+        return (image, "edited")
+
+
+class MingFlowEditResultRouter:
+    """Lazily choose the original image or the selected editor's result."""
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {"route": ("MINGFLOW_EDIT_ROUTE",)},
+            "optional": {
+                "original_image": ("IMAGE", {"lazy": True}),
+                "edited_image": ("IMAGE", {"lazy": True}),
+            },
+        }
+
+    RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("selected_image",)
+    FUNCTION = "select"
+    CATEGORY = "🌊 MingFlow/Image Edit"
+
+    @classmethod
+    def check_lazy_status(cls, route, original_image=None, edited_image=None):
+        if route == "original" and original_image is None:
+            return ["original_image"]
+        if route == "edited" and edited_image is None:
+            return ["edited_image"]
+
+    def select(self, route, original_image=None, edited_image=None):
+        if route == "original":
+            if original_image is None:
+                raise ValueError("원본 이미지 경로가 연결되지 않았습니다.")
+            return (original_image,)
+        if route == "edited":
+            if edited_image is None:
+                raise ValueError("수정 이미지 경로가 연결되지 않았습니다.")
+            return (edited_image,)
+        return (ExecutionBlocker(None),)
 
 
 class GPTImageDisplay:
@@ -1061,13 +1475,46 @@ class TripoPreview3DAnimation:
     CATEGORY = "🌊 MingFlow/Tripo"
     EXPERIMENTAL = True
 
+    @classmethod
+    def IS_CHANGED(cls, glb_path, model_file=""):
+        # The upstream Tripo node creates a new file while the graph wiring stays
+        # unchanged. Never reuse an old Preview3D UI payload for a new GLB.
+        return float("nan")
+
     def preview(self, glb_path, model_file=""):
-        path = str(glb_path or model_file).strip()
-        if not path:
+        raw_path = str(glb_path or model_file).strip()
+        if not raw_path:
             raise ValueError("Tripo GLB 경로를 glb_path 입력에 연결하세요.")
+        path = Path(raw_path).expanduser().resolve()
         if Path(path).suffix.lower() not in {".glb", ".gltf", ".fbx", ".obj", ".stl"}:
             raise ValueError(f"지원하지 않는 3D 파일 형식입니다: {Path(path).suffix}")
-        return {"ui": {"model_file": [path]}, "result": ()}
+        if not path.is_file():
+            raise FileNotFoundError(f"Tripo 3D 파일을 찾을 수 없습니다: {path}")
+
+        import folder_paths
+
+        output_root = Path(folder_paths.get_output_directory()).resolve()
+        try:
+            output_relative = path.relative_to(output_root)
+        except ValueError as exc:
+            raise ValueError("Tripo GLB가 ComfyUI output 폴더 밖에 있습니다.") from exc
+
+        relative_path = output_relative.as_posix()
+        file_info = {
+            "filename": path.name,
+            "subfolder": output_relative.parent.as_posix()
+            if output_relative.parent != Path(".")
+            else "",
+            "type": "output",
+        }
+        return {
+            "ui": {
+                "result": [relative_path, None, None],
+                "model_file": [relative_path],
+                "glb_file": [file_info],
+            },
+            "result": (),
+        }
 
 
 class Trellis2PreviewGLBDownload:
@@ -1586,9 +2033,16 @@ NODE_CLASS_MAPPINGS = {
     "ARTAI_QwenImageGenerateLocalV2": QwenImageGenerateLocalV2,
     "ARTAI_QwenImageGenerateLocalV3": QwenImageGenerateLocalV3,
     "ARTAI_QwenImageGenerateDiffusersBF16V4": QwenImageGenerateDiffusersBF16V4,
+    "ARTAI_QwenImageEditDiffusersBF16": QwenImageEditDiffusersBF16,
     "ARTAI_GPTPromptGenerator": GPTPromptGenerator,
     "ARTAI_GPTImage2Generate": GPTImage2Generate,
     "ARTAI_GPTImage2Edit": GPTImage2Edit,
+    "ARTAI_GPTImagePartialEdit": GPTImagePartialEdit,
+    "ARTAI_MingFlowImageCheckpoint": MingFlowImageCheckpoint,
+    "ARTAI_MingFlowRegionSelector": MingFlowRegionSelector,
+    "ARTAI_MingFlowEditApprovalGate": MingFlowEditApprovalGate,
+    "ARTAI_MingFlowQwenEditDecision": MingFlowQwenEditDecision,
+    "ARTAI_MingFlowEditResultRouter": MingFlowEditResultRouter,
     "ARTAI_GPTImageDisplay": GPTImageDisplay,
     "ARTAI_QwenImagePreviewDownload": QwenImagePreviewDownload,
     "ARTAI_TripoImageTo3DSmartLowPoly": TripoImageTo3DSmartLowPoly,
@@ -1604,14 +2058,21 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "ARTAI_OpenAIAPIKey": "OpenAI API Key Check",
     "ARTAI_TripoAPIKey": "Tripo API Key Check",
     "ARTAI_GPTPromptInput": "GPT Prompt Input",
-    "ARTAI_QwenPromptInput": "✍️ Qwen Prompt Input",
+    "ARTAI_QwenPromptInput": "✍️ Qwen Prompt Input · Positive & Negative",
     "ARTAI_QwenImageGenerateLocal": "⚠️ Qwen Image Generate · Legacy (delete)",
     "ARTAI_QwenImageGenerateLocalV2": "⚠️ Qwen Image Generate · V2 (delete)",
     "ARTAI_QwenImageGenerateLocalV3": "⚠️ Qwen Image Generate · V3 (delete)",
     "ARTAI_QwenImageGenerateDiffusersBF16V4": "⚡ Qwen Image Generate · Diffusers BF16 V4",
+    "ARTAI_QwenImageEditDiffusersBF16": "🖌️ Qwen Image Edit 2511 · Diffusers BF16",
     "ARTAI_GPTPromptGenerator": "GPT Prompt Generator",
     "ARTAI_GPTImage2Generate": "GPT Image 2 Generate",
     "ARTAI_GPTImage2Edit": "GPT Image 2 Edit",
+    "ARTAI_GPTImagePartialEdit": "🖌️ GPT 이미지 부분 수정",
+    "ARTAI_MingFlowImageCheckpoint": "🔒 MingFlow 생성 이미지 고정",
+    "ARTAI_MingFlowRegionSelector": "🟩 MingFlow 수정 영역 선택",
+    "ARTAI_MingFlowEditApprovalGate": "🖌️ GPT 부분 수정 여부 결정",
+    "ARTAI_MingFlowQwenEditDecision": "❓ Qwen 수정 여부 결정",
+    "ARTAI_MingFlowEditResultRouter": "🔀 MingFlow 수정 결과 선택",
     "ARTAI_GPTImageDisplay": "GPT Image Display",
     "ARTAI_QwenImagePreviewDownload": "🖼️ Qwen Image Preview & Download",
     "ARTAI_TripoImageTo3DSmartLowPoly": "Tripo Image to 3D · Smart LowPoly",

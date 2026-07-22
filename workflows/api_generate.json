@@ -1,6 +1,6 @@
 {
-  "last_node_id": 9,
-  "last_link_id": 9,
+  "last_node_id": 14,
+  "last_link_id": 21,
   "nodes": [
     {
       "id": 4,
@@ -12,7 +12,7 @@
       "mode": 0,
       "inputs": [],
       "outputs": [
-        {"name": "api_key", "type": "OPENAI_API_KEY", "links": [5, 6], "slot_index": 0}
+        {"name": "api_key", "type": "OPENAI_API_KEY", "links": [5, 6, 14], "slot_index": 0}
       ],
       "properties": {"Node name for S&R": "ARTAI_OpenAIAPIKey"},
       "widgets_values": [],
@@ -76,7 +76,7 @@
         {"name": "background", "type": "COMBO", "widget": {"name": "background"}, "link": null}
       ],
       "outputs": [
-        {"name": "IMAGE", "type": "IMAGE", "links": [2, 4], "slot_index": 0}
+        {"name": "IMAGE", "type": "IMAGE", "links": [18], "slot_index": 0}
       ],
       "properties": {"Node name for S&R": "ARTAI_GPTImage2Generate"},
       "widgets_values": ["", "1024x1024", "medium", "opaque"],
@@ -89,7 +89,7 @@
       "pos": [1940, 160],
       "size": [320, 270],
       "flags": {},
-      "order": 6,
+      "order": 11,
       "mode": 0,
       "inputs": [
         {"name": "images", "type": "IMAGE", "link": 2},
@@ -101,20 +101,68 @@
     },
     {
       "id": 6,
-      "type": "ARTAI_GPTImageDisplay",
-      "pos": [1500, 120],
-      "size": [360, 360],
+      "type": "ARTAI_MingFlowRegionSelector",
+      "pos": [1900, 120],
+      "size": [420, 500],
       "flags": {},
       "order": 5,
       "mode": 0,
       "inputs": [
-        {"name": "images", "type": "IMAGE", "link": 4}
+        {"name": "image", "type": "IMAGE", "link": 4},
+        {"name": "mask_data", "type": "STRING", "widget": {"name": "mask_data"}, "link": null}
       ],
       "outputs": [
-        {"name": "images", "type": "IMAGE", "links": [8], "slot_index": 0}
+        {"name": "mask", "type": "MASK", "links": [10], "slot_index": 0}
       ],
-      "properties": {"Node name for S&R": "ARTAI_GPTImageDisplay"},
-      "widgets_values": [],
+      "properties": {"Node name for S&R": "ARTAI_MingFlowRegionSelector"},
+      "widgets_values": [""],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 10,
+      "type": "ARTAI_MingFlowEditApprovalGate",
+      "pos": [2380, 120],
+      "size": [330, 150],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {"name": "image", "type": "IMAGE", "link": 11},
+        {"name": "mask", "type": "MASK", "link": 10},
+        {"name": "stage", "type": "COMBO", "widget": {"name": "stage"}, "link": null}
+      ],
+      "outputs": [
+        {"name": "image", "type": "IMAGE", "links": [12], "slot_index": 0},
+        {"name": "mask", "type": "MASK", "links": [13], "slot_index": 1},
+        {"name": "route", "type": "MINGFLOW_EDIT_ROUTE", "links": [19], "slot_index": 2}
+      ],
+      "properties": {"Node name for S&R": "ARTAI_MingFlowEditApprovalGate"},
+      "widgets_values": ["마스킹 중 · 정지"],
+      "color": "#3b3020",
+      "bgcolor": "#59482c"
+    },
+    {
+      "id": 11,
+      "type": "ARTAI_GPTImagePartialEdit",
+      "pos": [2750, 100],
+      "size": [390, 300],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {"name": "api_key", "type": "OPENAI_API_KEY", "link": 14},
+        {"name": "image", "type": "IMAGE", "link": 12},
+        {"name": "edit_prompt", "type": "STRING", "widget": {"name": "edit_prompt"}, "link": null},
+        {"name": "size", "type": "COMBO", "widget": {"name": "size"}, "link": null},
+        {"name": "quality", "type": "COMBO", "widget": {"name": "quality"}, "link": null},
+        {"name": "mask", "type": "MASK", "link": 13}
+      ],
+      "outputs": [
+        {"name": "edited_image", "type": "IMAGE", "links": [15], "slot_index": 0}
+      ],
+      "properties": {"Node name for S&R": "ARTAI_GPTImagePartialEdit"},
+      "widgets_values": ["", "입력 이미지 비율", "medium"],
       "color": "#233",
       "bgcolor": "#355"
     },
@@ -138,14 +186,14 @@
     {
       "id": 8,
       "type": "ARTAI_TripoImageTo3DSmartLowPoly",
-      "pos": [1940, 530],
+      "pos": [4130, 180],
       "size": [390, 260],
       "flags": {},
-      "order": 7,
+      "order": 10,
       "mode": 0,
       "inputs": [
         {"name": "api_key", "type": "TRIPO_API_KEY", "link": 7},
-        {"name": "image", "type": "IMAGE", "link": 8},
+        {"name": "image", "type": "IMAGE", "link": 21},
         {"name": "face_limit", "type": "INT", "widget": {"name": "face_limit"}, "link": null},
         {"name": "texture_quality", "type": "COMBO", "widget": {"name": "texture_quality"}, "link": null},
         {"name": "timeout_minutes", "type": "INT", "widget": {"name": "timeout_minutes"}, "link": null}
@@ -161,30 +209,82 @@
     },
     {
       "id": 9,
-      "type": "Preview3DAnimation",
-      "pos": [2420, 420],
+      "type": "ARTAI_TripoPreview3DAnimation",
+      "pos": [4630, 100],
       "size": [400, 550],
       "flags": {},
-      "order": 8,
+      "order": 11,
       "mode": 0,
       "inputs": [
-        {"name": "model_file", "type": "STRING", "widget": {"name": "model_file"}, "link": 9}
+        {"name": "glb_path", "type": "STRING", "link": 9},
+        {"name": "model_file", "type": "STRING", "widget": {"name": "model_file"}, "link": null}
       ],
       "outputs": [],
-      "properties": {"Node name for S&R": "Preview3DAnimation"},
+      "properties": {"Node name for S&R": "ARTAI_TripoPreview3DAnimation"},
       "widgets_values": [""]
+    },
+    {
+      "id": 13,
+      "type": "ARTAI_MingFlowImageCheckpoint",
+      "pos": [1480, 120],
+      "size": [350, 180],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {"name": "mode", "type": "COMBO", "widget": {"name": "mode"}, "link": null},
+        {"name": "checkpoint_name", "type": "STRING", "widget": {"name": "checkpoint_name"}, "link": null},
+        {"name": "image", "type": "IMAGE", "link": 18}
+      ],
+      "outputs": [
+        {"name": "fixed_image", "type": "IMAGE", "links": [2, 4, 11, 20], "slot_index": 0}
+      ],
+      "properties": {"Node name for S&R": "ARTAI_MingFlowImageCheckpoint"},
+      "widgets_values": ["새 이미지 저장", "gpt_source"],
+      "color": "#342f1f",
+      "bgcolor": "#544a2d"
+    },
+    {
+      "id": 14,
+      "type": "ARTAI_MingFlowEditResultRouter",
+      "pos": [3220, 100],
+      "size": [350, 180],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {"name": "route", "type": "MINGFLOW_EDIT_ROUTE", "link": 19},
+        {"name": "original_image", "type": "IMAGE", "link": 20},
+        {"name": "edited_image", "type": "IMAGE", "link": 15}
+      ],
+      "outputs": [
+        {"name": "selected_image", "type": "IMAGE", "links": [21], "slot_index": 0}
+      ],
+      "properties": {"Node name for S&R": "ARTAI_MingFlowEditResultRouter"},
+      "widgets_values": [],
+      "color": "#2d2a46",
+      "bgcolor": "#45406a"
     }
   ],
   "links": [
     [1, 1, 0, 5, 1, "STRING"],
-    [2, 2, 0, 3, 0, "IMAGE"],
+    [2, 13, 0, 3, 0, "IMAGE"],
     [3, 5, 0, 2, 1, "STRING"],
-    [4, 2, 0, 6, 0, "IMAGE"],
+    [4, 13, 0, 6, 0, "IMAGE"],
     [5, 4, 0, 5, 0, "OPENAI_API_KEY"],
     [6, 4, 0, 2, 0, "OPENAI_API_KEY"],
     [7, 7, 0, 8, 0, "TRIPO_API_KEY"],
-    [8, 6, 0, 8, 1, "IMAGE"],
-    [9, 8, 0, 9, 0, "STRING"]
+    [9, 8, 0, 9, 0, "STRING"],
+    [10, 6, 0, 10, 1, "MASK"],
+    [11, 13, 0, 10, 0, "IMAGE"],
+    [12, 10, 0, 11, 1, "IMAGE"],
+    [13, 10, 1, 11, 5, "MASK"],
+    [14, 4, 0, 11, 0, "OPENAI_API_KEY"],
+    [15, 11, 0, 14, 2, "IMAGE"],
+    [18, 2, 0, 13, 2, "IMAGE"],
+    [19, 10, 2, 14, 0, "MINGFLOW_EDIT_ROUTE"],
+    [20, 13, 0, 14, 1, "IMAGE"],
+    [21, 14, 0, 8, 1, "IMAGE"]
   ],
   "groups": [],
   "config": {},

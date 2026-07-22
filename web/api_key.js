@@ -1,6 +1,18 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 
+function addBoundedDOMWidget(node, name, type, element, height) {
+    const container = document.createElement("div");
+    container.style.cssText = "width:100%;max-width:100%;height:100%;box-sizing:border-box;overflow:hidden;";
+    container.appendChild(element);
+    const widget = node.addDOMWidget(name, type, container, {
+        serialize: false,
+        hideOnZoom: false,
+    });
+    widget.computeSize = (width) => [width, height];
+    return widget;
+}
+
 // Show backend progress inside the TRELLIS2 generation node. Some current
 // ComfyUI frontends no longer render numeric progress for custom nodes.
 app.registerExtension({
@@ -59,13 +71,44 @@ app.registerExtension({
     },
 });
 
-// Reuse ComfyUI's official animated 3D viewer for our connectable wrapper.
+// Reuse ComfyUI's current 3D viewer for our connectable Tripo wrapper.
 app.registerExtension({
     name: "ARTAI.TripoPreview3DAnimation",
     async beforeRegisterNodeDef(nodeType, nodeData) {
         if (nodeData.name !== "ARTAI_TripoPreview3DAnimation") return;
-        nodeData.input.required.image = ["PREVIEW_3D_ANIMATION"];
-        nodeType.comfyClass = "Preview3DAnimation";
+        nodeData.input.required.image = ["PREVIEW_3D"];
+        nodeType.comfyClass = "Preview3D";
+
+        const original = nodeType.prototype.onNodeCreated;
+        nodeType.prototype.onNodeCreated = function () {
+            original?.apply(this, arguments);
+            this.mingFlowTripoGlbFile = null;
+
+            this.addWidget("button", "Tripo GLB 다운로드", null, () => {
+                const file = this.mingFlowTripoGlbFile;
+                if (!file?.filename) {
+                    alert("먼저 Tripo 3D 생성과 프리뷰를 실행하세요.");
+                    return;
+                }
+                const params = new URLSearchParams({
+                    filename: file.filename,
+                    subfolder: file.subfolder || "",
+                    type: file.type || "output",
+                });
+                const anchor = document.createElement("a");
+                anchor.href = api.apiURL(`/view?${params.toString()}`);
+                anchor.download = file.filename;
+                document.body.appendChild(anchor);
+                anchor.click();
+                anchor.remove();
+            });
+
+            const onExecuted = this.onExecuted;
+            this.onExecuted = function (message) {
+                onExecuted?.apply(this, arguments);
+                this.mingFlowTripoGlbFile = message?.glb_file?.[0] || null;
+            };
+        };
     },
 });
 
@@ -127,19 +170,13 @@ app.registerExtension({
             input.type = "password";
             input.placeholder = "sk-...";
             input.autocomplete = "off";
-            input.style.cssText = "width:100%;box-sizing:border-box;background:#181818;color:#eee;border:1px solid #555;border-radius:4px;padding:6px";
-            this.addDOMWidget("api_key", "ARTAI_API_KEY", input, {
-                serialize: false,
-                hideOnZoom: false,
-            });
+            input.style.cssText = "display:block;width:100%;max-width:100%;min-width:0;height:34px;box-sizing:border-box;background:#181818;color:#eee;border:1px solid #555;border-radius:4px;padding:6px;";
+            addBoundedDOMWidget(this, "api_key", "ARTAI_API_KEY", input, 42);
 
             const status = document.createElement("div");
             status.textContent = "키가 설정되지 않았습니다.";
-            status.style.cssText = "padding:6px 2px;color:#bbb";
-            this.addDOMWidget("status", "ARTAI_STATUS", status, {
-                serialize: false,
-                hideOnZoom: false,
-            });
+            status.style.cssText = "width:100%;max-width:100%;box-sizing:border-box;padding:6px 2px;color:#bbb;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;user-select:none;";
+            addBoundedDOMWidget(this, "status", "ARTAI_STATUS", status, 36);
 
             this.addWidget("button", "API 키 유효성 확인", null, async () => {
                 const key = input.value.trim();
@@ -183,19 +220,13 @@ app.registerExtension({
             input.type = "password";
             input.placeholder = "tsk_...";
             input.autocomplete = "off";
-            input.style.cssText = "width:100%;box-sizing:border-box;background:#181818;color:#eee;border:1px solid #555;border-radius:4px;padding:6px";
-            this.addDOMWidget("tripo_api_key", "ARTAI_TRIPO_API_KEY", input, {
-                serialize: false,
-                hideOnZoom: false,
-            });
+            input.style.cssText = "display:block;width:100%;max-width:100%;min-width:0;height:34px;box-sizing:border-box;background:#181818;color:#eee;border:1px solid #555;border-radius:4px;padding:6px;";
+            addBoundedDOMWidget(this, "tripo_api_key", "ARTAI_TRIPO_API_KEY", input, 42);
 
             const status = document.createElement("div");
             status.textContent = "Tripo 키가 설정되지 않았습니다.";
-            status.style.cssText = "padding:6px 2px;color:#bbb";
-            this.addDOMWidget("tripo_status", "ARTAI_TRIPO_STATUS", status, {
-                serialize: false,
-                hideOnZoom: false,
-            });
+            status.style.cssText = "width:100%;max-width:100%;box-sizing:border-box;padding:6px 2px;color:#bbb;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;user-select:none;";
+            addBoundedDOMWidget(this, "tripo_status", "ARTAI_TRIPO_STATUS", status, 36);
 
             this.addWidget("button", "Tripo API 키 유효성 확인", null, async () => {
                 const key = input.value.trim();
@@ -280,44 +311,6 @@ app.registerExtension({
                 anchor.click();
                 URL.revokeObjectURL(url);
             });
-        };
-    },
-});
-
-app.registerExtension({
-    name: "ARTAI.TripoGLBDownload",
-    async beforeRegisterNodeDef(nodeType, nodeData) {
-        if (nodeData.name !== "ARTAI_TripoImageTo3DSmartLowPoly") return;
-
-        const original = nodeType.prototype.onNodeCreated;
-        nodeType.prototype.onNodeCreated = function () {
-            original?.apply(this, arguments);
-            this.artAiGlbFile = null;
-
-            this.addWidget("button", "생성된 GLB 다운로드", null, () => {
-                const file = this.artAiGlbFile;
-                if (!file?.filename) {
-                    alert("먼저 Tripo 3D 생성을 실행하세요.");
-                    return;
-                }
-                const params = new URLSearchParams({
-                    filename: file.filename,
-                    subfolder: file.subfolder || "",
-                    type: file.type || "output",
-                });
-                const anchor = document.createElement("a");
-                anchor.href = api.apiURL(`/view?${params.toString()}`);
-                anchor.download = file.filename;
-                document.body.appendChild(anchor);
-                anchor.click();
-                anchor.remove();
-            });
-
-            const onExecuted = this.onExecuted;
-            this.onExecuted = function (message) {
-                onExecuted?.apply(this, arguments);
-                this.artAiGlbFile = message?.glb_file?.[0] || null;
-            };
         };
     },
 });
