@@ -1188,14 +1188,16 @@ class MingFlowEditApprovalGate:
 
 
 class MingFlowQwenEditDecision:
-    """Run Qwen whole-image edit or lazily pass the original image through."""
+    """Pause for review, run Qwen edit, or lazily pass the original through."""
 
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
                 "image": ("IMAGE",),
-                "decision": (["수정 실행", "수정 없이 진행"],),
+                "decision": (
+                    ["결정 대기 · 정지", "수정 실행", "수정 없이 진행"],
+                ),
             }
         }
 
@@ -1205,6 +1207,9 @@ class MingFlowQwenEditDecision:
     CATEGORY = "🌊 MingFlow/Qwen Local"
 
     def decide(self, image, decision):
+        if decision == "결정 대기 · 정지":
+            blocker = ExecutionBlocker(None)
+            return (blocker, "blocked")
         if decision == "수정 없이 진행":
             return (ExecutionBlocker(None), "original")
         return (image, "edited")
